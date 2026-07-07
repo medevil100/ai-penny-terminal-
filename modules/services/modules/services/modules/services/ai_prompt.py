@@ -1,80 +1,183 @@
-def build_prompt(ticker: str, indicators: dict, news_data: list, horizon: str) -> str:
-    """
-    Rygorystyczny, ponad 150-liniowy prompt strukturalny dla OpenAI.
-    Bezwzględnie zmusza model do obliczenia realnych punktów AI SCORE zamiast zer.
-    """
-    
-    # Przygotowanie czytelnych wartości numerycznych dla modelu
+import sys
+from pathlib import Path
+import streamlit as st
+import json
+import requests
+
+# 1. CZYSTE IMPORTY BEZ PRZEDROSTKÓW
+from yahoo_service import YahooService
+from ai_prompt import build_prompt
+
+# 2. INICJALIZACJA OPENAI
+try:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception:
+    openai_client = None
+
+# 3. FUNKCJE POMOCNICZE (Tavily i Telegram)
+def fetch_tavily_news(ticker: str) -> list:
+    """Pobiera do 10 newsów rynkowych, komunikaty i insider data przez Tavily API."""
     try:
-        price_val = f"{indicators.get('price', 0):.2f}"
-        rsi_val = f"{indicators.get('rsi', 50):.2f}"
-        rvol_val = f"{indicators.get('rvol', 1.0):.2f}"
-        macd_val = f"{indicators.get('macd', 0):.4f}"
-        msig_val = f"{indicators.get('macd_signal', 0):.4f}"
-        ema20_val = f"{indicators.get('ema20', 0):.2f}"
-        ema50_val = f"{indicators.get('ema50', 0):.2f}"
-        ema200_val = f"{indicators.get('ema200', 0):.2f}"
+        tavily_key = st.secrets["TAVILY_API_KEY"]
+        url = "https://tavily.com"
+        payload = {
+            "api_key": tavily_key,
+            "query": f"{ticker} stock news earnings reports insider sentiment",
+            "search_depth": "advanced",
+            "max_results": 10,
+            "include_answer": False
+        }
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            results = response.json().get("results", [])
+            return [{"title": r.get("title"), "content": r.get("content"), "url": r.get("url")} for r in results]
     except Exception:
-        price_val, rsi_val, rvol_val, macd_val, msig_val = "0", "50", "1", "0", "0"
-        ema20_val, ema50_val, ema200_val = "0", "0", "0"
+        pass
+    return [{"title": "Brak danych newsowych", "content": "Nie udało się pobrać komunikatów dla tego waloru."}]
 
-    prompt = f"""
-Jesteś elitarnym i bezwzględnie precyzyjnym algorytmem tradingowym wyspecjalizowanym w analizie spółek groszowych (Penny Stocks) oraz strategiach typu Swing Trading.
-Twoim kluczowym zadaniem jest obliczenie składowych punktowych oraz sumarycznego wskaźnika AI SCORE dla waloru: {ticker}.
+def send_telegram_alert(message: str):
+    """Wysyła gotowy raport sygnałowy bezpośrednio na Twój kanał Telegram."""
+    try:
+        bot_token = st.secrets["TELEGRAM_BOT_TOKEN"]
+        chat_id = st.secrets["TELEGRAM_CHAT_ID"]
+        url = f"https://telegram.org{bot_token}/sendMessage"
+        requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}, timeout=5)
+    except Exception:
+        pass
 
-[HORYZONT INWESTYCYJNY]: {horizon}
+# 4. GŁÓWNA FUNKCJA URUCHAMIAJĄCA INTERFEJS (Streamlit UI)
+def run():
+    st.title("🤖 AI Analysis Center v1.0")
+    st.write("Profesjonalny system skanowania groszówek zintegrowany z Yahoo, Tavily oraz OpenAI.")
 
-[DANE TECHNICZNE Z YAHOO FINANCE]:
-- Aktualna Cena Zamknięcia: {price_val} PLN
-- Wskaźnik RSI(14): {rsi_val}
-- RVOL (Relative Volume - Wolumen względny): {rvol_val}x
-- Linia MACD: {macd_val} | Linia Sygnałowa MACD: {msig_val}
-- Średnie Kroczące: EMA20={ema20_val}, EMA50={ema50_val}, EMA200={ema200_val}
-- Słownik OHLC: {indicators.get('ohlc', {{}})}
-- Wolumen obrotu: {indicators.get('volume', 0)}
-- Wskaźnik ATR(14) (Zmienność): {indicators.get('atr', 0):.4f}
-- Wskaźnik VWAP: {indicators.get('vwap', 0):.2f}
+    # --- INPUT UŻYTKOWNIKA ---
+    col_input, col_horizon = st.columns(2)
+    with col_input:
+        ticker = st.text_input("Ticker spółki (np. BML.WA, TSLA):", value="BML.WA").upper()
+    with col_horizon:
+        horizon = st.selectbox("Horyzont Swing:", ["Krótkoterminowy (1-2 tygodnie)", "Średnioterminowy (2-6 tygodni)", "Długoterminowy (powyżej 6 tygodni)"])
 
-[DANE NEWSOWE I BEHAWIORALNE]:
-{news_data}
+    if st.button("🚀 Uruchom pełną analizę AI"):
+        
+        st.subheader("📝 Logi systemowe")
+        log_box = st.empty()
+        
+        # --- YAHOO FINANCE ---
+        with st.spinner("Łączenie z Yahoo Finance..."):
+            log_box.code(f"Yahoo Finance Service: Pobieranie danych historycznych dla {ticker}...")
+            yahoo = YahooService()
+            indicators = yahoo.get_full_analysis(ticker)
+            
+            if not indicators:
+                st.error(f"❌ Nie udało się pobrać wskaźników dla {ticker}. Sprawdź poprawność symbolu.")
+                return
+                
+            log_box.code(f"Yahoo Finance Service: Obliczono pomyślnie [Cena: {indicators['price']} PLN | RSI: {indicators['rsi']:.2f}]")
 
-[ZASADY SYSTEMU PUNKTACJI AI SCORE (SUMA MAX: 100 PUNKTÓW)]:
-Musisz dokonać matematycznego wyliczenia i przypisać punkty w każdej kategorii! ZAKAZUJE SIĘ WPISYWANIA WARTOŚCI 0, CHYBA ŻE WSKAŹNIK JEST SKRAJNIE NEGATYWNY.
-1. score_trend (Waga: 0 do 20 pkt): Jeśli cena > EMA20 > EMA50 > EMA200 daj od 15 do 20 pkt. Jeśli cena pod średnimi, daj poniżej 5 pkt.
-2. score_volume (Waga: 0 do 15 pkt): Jeśli RVOL > 1.5x, daj od 10 do 15 pkt (jest obrót!). Jeśli RVOL < 1.0x, daj poniżej 5 pkt.
-3. score_rsi (Waga: 0 do 10 pkt): Wyznacz punkty na podstawie pozycji RSI. Wyprzedanie (RSI < 30) z odbiciem = 10 pkt. Wykupienie (RSI > 70) = 2 pkt.
-4. score_macd (Waga: 0 do 15 pkt): Przecięcie od dołu linii sygnałowej = 12 do 15 pkt. Trend spadkowy na histogramie = poniżej 5 pkt.
-5. score_news (Waga: 0 do 20 pkt): Oceń pobrane z Tavily wiadomości i earnings raporty. Pozytywne komunikaty = 15 do 20 pkt.
-6. score_sentiment (Waga: 0 do 12 pkt): Ogólny nastrój tłumu rynkowego na podstawie newsów.
+        # --- TAVILY SEARCH ---
+        with st.spinner("Uruchamianie Tavily Search..."):
+            log_box.code("Tavily Search: Przeszukiwanie sieci pod kątem ostatnich 10 komunikatów...")
+            news_data = fetch_tavily_news(ticker)
+            log_box.code(f"Tavily Search: Pobrano pomyślnie {len(news_data)} wpisów.")
 
-[KRYTYCZNE WYMAGANIE MATEMATYCZNE]:
-Pole `total_score` MUSI być dokładną sumą arytmetyczną pól składowych! 
-Wzór: total_score = score_trend + score_volume + score_rsi + score_macd + score_news + score_sentiment. Oblicz to matematycznie! Nie wymyślaj liczby z kosmosu.
+        # --- OPENAI PLATFORM ---
+        with st.spinner("Wysyłanie zapytania do OpenAI Platform..."):
+            log_box.code("OpenAI Platform: Kompilowanie promptu analitycznego i uruchamianie LLM...")
+            
+            if not openai_client:
+                st.error("❌ Brak skonfigurowanego klucza OPENAI_API_KEY w sekretach Streamlit.")
+                return
 
-[WYMAGANIA FORMATOWANIA]:
-Zwróć odpowiedź WYŁĄCZNIE jako czysty obiekt JSON. Nie dodawaj tekstu przed/po, ani znaczników typu ```json.
+            # PANNCERNE ZABEZPIECZENIE: Konwertujemy problematyczny pod-słownik 'ohlc' na czysty tekst (string)
+            # Zapobiega to błędowi 'unhashable type: dict' w starych szablonach ai_prompt.py
+            if isinstance(indicators, dict) and "ohlc" in indicators:
+                indicators["ohlc"] = str(indicators["ohlc"])
 
-Oto wymagany szablon struktury JSON (liczby w polach score MUSZĄ odzwierciedlać Twoje realne wyliczenia, a nie zera!):
-{{
-    "score_trend": 14,
-    "score_volume": 11,
-    "score_rsi": 7,
-    "score_macd": 12,
-    "score_news": 15,
-    "score_sentiment": 9,
-    "total_score": 68,
-    "decision": "KUPUJ / SPRZEDAJ / OBSERWUJ",
-    "sentiment_label": "BYCZY (Bullish) / NIEDŹWIEDZI (Bearish) / NEUTRALNY",
-    "risk_level": "NISKI / ŚREDNI / WYSOKI",
-    "trend_comment": "Krótki komentarz odnośnie obliczonych średnich i trendu...",
-    "news_comment": "Krótkie podsumowanie 10 wiadomości z Tavily...",
-    "ai_analysis_comment": "Pełna, strategiczna analiza inwestycyjna OpenAI...",
-    "risk_comment": "Główne czynniki ryzyka dla tego waloru...",
-    "tp1": 0.00,
-    "tp2": 0.00,
-    "tp3": 0.00,
-    "sl": 0.00,
-    "confidence_pct": 75
-}}
-"""
-    return prompt.strip()
+            prompt = build_prompt(ticker, indicators, news_data, horizon)
+            
+            try:
+                response = openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                    temperature=0.4
+                )
+
+                ai_text = response.choices[0].message.content
+                ai_result = json.loads(ai_text)
+                log_box.code("OpenAI Platform: Analiza strukturalna JSON wygenerowana bez błędów.")
+            except Exception as e:
+                st.error(f"❌ Błąd krytyczny OpenAI: {e}")
+                return
+
+        # --- TELEGRAM ALERT ---
+        with st.spinner("Generowanie powiadomienia Telegram Alert..."):
+            log_box.code("Telegram Alert: Formatowanie skróconego raportu sygnałowego...")
+            
+            tg_message = (
+                f"🚨 *Sygnał Swing AI: {ticker}*\n"
+                f"🎯 Decyzja: {ai_result.get('decision')}\n"
+                f"📊 AI Score: {ai_result.get('total_score')}/100\n"
+                f"⏳ Horyzont: {horizon}\n\n"
+                f"🎯 TP1: {ai_result.get('tp1')} PLN\n"
+                f"🎯 TP2: {ai_result.get('tp2')} PLN\n"
+                f"🎯 TP3: {ai_result.get('tp3')} PLN\n"
+                f"🛑 Stop Loss: {ai_result.get('sl')} PLN"
+            )
+            send_telegram_alert(tg_message)
+            log_box.code("Telegram Alert: Raport został wysłany.")
+
+        st.success("✅ Pełna analiza rynkowa zakończona sukcesem!")
+        st.divider()
+ 
+        # --- RENDEROWANIE INTERFEJSU UŻYTKOWNIKA ---
+        st.subheader(f"📊 Wynik analizy dla: {ticker}")
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Decyzja AI", ai_result.get("decision"), delta=f"Pewność: {ai_result.get('confidence_pct')}%")
+        c2.metric("Sentyment rynkowy", ai_result.get("sentiment_label"))
+        c3.metric("Poziom Ryzyka", ai_result.get("risk_level"))
+
+        st.info(f"⏳ **Zakładany horyzont inwestycyjny:** {horizon}")
+
+        st.markdown(f"### 🏆 AI SCORE: {ai_result.get('total_score')} / 100")
+        st.progress(min(ai_result.get("total_score", 0) / 100, 1.0))
+        
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            st.write(f"📈 **Trend:** +{ai_result.get('score_trend')} / 20")
+            st.write(f"🔊 **Volume (RVOL):** +{ai_result.get('score_volume')} / 15")
+            st.write(f"🎛️ **RSI:** +{ai_result.get('score_rsi')} / 10")
+        with col_s2:
+            st.write(f"📊 **MACD:** +{ai_result.get('score_macd')} / 15")
+            st.write(f"📰 **News:** +{ai_result.get('score_news')} / 20")
+            st.write(f"👥 **Sentiment:** +{ai_result.get('score_sentiment')} / 12")
+
+        st.divider()
+
+        st.markdown("### 📈 Analiza Trendu (Yahoo Finance)")
+        st.write(ai_result.get("trend_comment"))
+
+        st.markdown("### 📰 Podsumowanie Wiadomości i Komunikatów (Tavily)")
+        st.write(ai_result.get("news_comment"))
+
+        st.markdown("### 📝 Komentarz i Strategia (OpenAI Platform)")
+        st.write(ai_result.get("ai_analysis_comment"))
+
+        st.markdown("### ⚠️ Czynniki Ryzyka")
+        st.write(ai_result.get("risk_comment"))
+
+        st.markdown("## ━━━━━━━━━━━━━━━━━━━━")
+        st.markdown("### 🎯 Docelowe poziomy cenowe (Sygnał Swing)")
+        
+        try:
+            st.success(f"🎯 **TP1 (Take Profit 1):** {float(ai_result.get('tp1')):.2f} PLN")
+            st.success(f"🎯 **TP2 (Take Profit 2):** {float(ai_result.get('tp2')):.2f} PLN")
+            st.success(f"🎯 **TP3 (Take Profit 3):** {float(ai_result.get('tp3')):.2f} PLN")
+            st.error(f"🛑 **STOP LOSS (SL):** {float(ai_result.get('sl')):.2f} PLN")
+        except Exception:
+            st.success(f"🎯 **TP1 (Take Profit 1):** {ai_result.get('tp1')} PLN")
+            st.success(f"🎯 **TP2 (Take Profit 2):** {ai_result.get('tp2')} PLN")
+            st.success(f"🎯 **TP3 (Take Profit 3):** {ai_result.get('tp3')} PLN")
+            st.error(f"🛑 **STOP LOSS (SL):** {ai_result.get('sl')} PLN")
