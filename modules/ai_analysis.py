@@ -4,23 +4,17 @@ import streamlit as st
 import json
 import requests
 
-# 1. WYMUSZENIE WIDOCZNOŚCI FOLDERÓW (Musi być na samym początku przed importem serwisu)
-root_path = Path(__file__).parent.parent.absolute()
-if str(root_path) not in sys.path:
-    sys.path.insert(0, str(root_path))
+# 1. CZYSTE IMPORTY BEZ PRZEDROSTKÓW (System sys.path z app.py już widzi te pliki bezpośrednio)
+from yahoo_service import YahooService
+from ai_prompt import build_prompt
 
-# 2. IMPORTY ZESPOŁU SERWISÓW (Po zarejestrowaniu sys.path)
-try:
-    from services.yahoo_service import YahooService
-    from services.ai_prompt import build_prompt
-except ModuleNotFoundError:
-    # Ścieżka ratunkowa dla podwójnego folderu modules/modules
-    from modules.services.yahoo_service import YahooService
-    from modules.services.ai_prompt import build_prompt
-
-# 3. INICJALIZACJA OPENAI
+# 2. INICJALIZACJA OPENAI
 try:
     from openai import OpenAI
+    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception:
+    openai_client = None
+
     openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception:
     openai_client = None
