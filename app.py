@@ -48,18 +48,18 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU (Dostosowane dokładnie do Twojej struktury na GitHubie)
+# MENU (Wartości są prostymi nazwami plików .py)
 # -------------------------------------------------------
 
 MENU = {
     "🏠 Dashboard": "dashboard",
-    "🇵🇱 GPW Scanner": "modules.gpw_scanner",
-    "🇺🇸 USA Scanner": "modules.usa_scanner",
-    "📰 News Center": "modules.news_center",
-    "🤖 AI Analysis": "modules.ai_analysis",
-    "🏆 Ranking": "modules.ranking",
-    "📬 Telegram": "modules.telegram",
-    "⚙ Settings": "modules.settings_page",
+    "🇵🇱 GPW Scanner": "gpw_scanner",
+    "🇺🇸 USA Scanner": "usa_scanner",
+    "📰 News Center": "news_center",
+    "🤖 AI Analysis": "ai_analysis",
+    "🏆 Ranking": "ranking",
+    "📬 Telegram": "telegram",
+    "⚙ Settings": "settings_page",
 }
 
 # -------------------------------------------------------
@@ -94,8 +94,12 @@ if deep_modules.exists() and str(deep_modules) not in sys.path:
 module_name = MENU[selected]
 
 try:
-    # Bezpieczne ładowanie z uwzględnieniem struktury podfolderów
-    module = importlib.import_module(f"modules.{module_name}")
+    # Próba załadowania bezpośredniego lub poprzez strukturę podkatalogów
+    try:
+        module = importlib.import_module(f"modules.{module_name}")
+    except ModuleNotFoundError:
+        # Ratunkowe ładowanie, jeśli struktura zduplikowała się na GitHubie
+        module = importlib.import_module(f"modules.modules.{module_name}")
 
     if hasattr(module, "run"):
         module.run()
