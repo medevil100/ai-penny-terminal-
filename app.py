@@ -5,7 +5,7 @@
  Author  : Adam + ChatGPT
 =========================================================
 """
-
+import modules.gpw_scanner as gpw_scanner
 import streamlit as st
 import importlib
 from pathlib import Path
