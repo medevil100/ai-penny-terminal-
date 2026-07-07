@@ -9,12 +9,17 @@ class YahooService:
     def get_full_analysis(self, ticker: str) -> dict | None:
         """Pobiera dane historyczne i oblicza pełen zestaw wskaźników technicznych."""
         try:
-            # Użycie yf.Ticker().history() eliminuje MultiIndex i błędy pobierania dla pojedynczego waloru
+            # Próba pobrania standardowego roku danych
             ticker_obj = yf.Ticker(ticker)
             df = ticker_obj.history(period="1y", interval="1d", actions=False, auto_adjust=True)
             
-            # Bezpieczny warunek minimalnej długości historii (przydatne dla groszówek)
-            if df.empty or len(df) < 30:
+            # --- TRYB RATUNKOWY DLA MAŁO PŁYNNYCH SPÓŁEK/GROSZÓWEK ---
+            # Jeśli tabela jest pusta, próbujemy pobrać krótszy okres (np. ostatnie 3 miesiące)
+            if df.empty or len(df) < 5:
+                df = ticker_obj.history(period="3mo", interval="1d", actions=False, auto_adjust=True)
+                
+            # Jeśli po próbie ratunkowej nadal nie ma danych, walor nie istnieje w Yahoo Finance
+            if df.empty or len(df) < 3:
                 return None
 
             # Standaryzacja i ujednolicenie nazw nagłówków kolumn
@@ -25,8 +30,8 @@ class YahooService:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # Usunięcie pustych wierszy
-            df = df.dropna(subset=['Close'])
+            # Uzupełniamy ewentualne puste dni (brak obrotu na groszówkach) poprzednimi wartościami
+            df = df.ffill().dropna(subset=['Close'])
 
             # Pobranie bazowych danych OHLCV z ostatniej sesji
             last_row = df.iloc[-1]
@@ -37,41 +42,43 @@ class YahooService:
                 "Low": float(last_row['Low']),
                 "Close": close_price
             }
-            volume = int(last_row['Volume'])
+            volume = int(last_row['Volume']) if 'Volume' in df.columns else 0
 
-            # --- OBLICZENIA WSKAŹNIKÓW TECHNICZNYCH ---
+            # --- OBLICZENIA WSKAŹNIKÓW Z DYNAMICZNYMI WAGAMI (Dopasowane do długości historii) ---
+            history_len = len(df)
             
-            # 1. Obliczanie EMA (20, 50, 200) z dynamiczną ochroną dla mniejszej ilości danych
-            df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
-            df['EMA50'] = df['Close'].ewm(span=50, adjust=False).mean()
-            df['EMA200'] = df['Close'].ewm(span=min(200, len(df)), adjust=False).mean()
+            df['EMA20'] = df['Close'].ewm(span=min(20, history_len), adjust=False).mean()
+            df['EMA50'] = df['Close'].ewm(span=min(50, history_len), adjust=False).mean()
+            df['EMA200'] = df['Close'].ewm(span=min(200, history_len), adjust=False).mean()
 
-            # 2. Obliczanie RSI (14)
+            # Obliczanie RSI (14) lub krótszego, jeśli historia jest bardzo krótka
+            rsi_period = min(14, history_len - 1) if history_len > 2 else 2
             delta = df['Close'].diff()
-            gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
-            loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
+            gain = (delta.where(delta > 0, 0)).ewm(alpha=1/rsi_period, adjust=False).mean()
+            loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/rsi_period, adjust=False).mean()
             rs = gain / (loss + 1e-10)
             df['RSI'] = 100 - (100 / (1 + rs))
 
-            # 3. Obliczanie MACD (12, 26, 9)
-            exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-            exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+            # Obliczanie MACD
+            exp1 = df['Close'].ewm(span=min(12, history_len), adjust=False).mean()
+            exp2 = df['Close'].ewm(span=min(26, history_len), adjust=False).mean()
             df['MACD'] = exp1 - exp2
-            df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+            df['Signal'] = df['MACD'].ewm(span=min(9, history_len), adjust=False).mean()
 
-            # 4. Obliczanie ATR (14)
+            # Obliczanie ATR
             high_low = df['High'] - df['Low']
             high_close = np.abs(df['High'] - df['Close'].shift())
             low_close = np.abs(df['Low'] - df['Close'].shift())
             ranges = pd.concat([high_low, high_close, low_close], axis=1)
             true_range = ranges.max(axis=1)
-            df['ATR'] = true_range.ewm(alpha=1/14, adjust=False).mean()
+            df['ATR'] = true_range.ewm(alpha=1/rsi_period, adjust=False).mean()
 
-            # 5. Obliczanie VWAP (dzienne przybliżenie wartości skumulowanej)
+            # Obliczanie VWAP
             df['VWAP'] = (df['Volume'] * (df['High'] + df['Low'] + df['Close']) / 3).cumsum() / (df['Volume'].cumsum() + 1e-10)
 
-            # 6. Obliczanie RVOL (Wolumen dzisiejszy vs średnia z ostatnich 20 sesji)
-            df['Vol_MA20'] = df['Volume'].rolling(window=20).mean()
+            # Obliczanie RVOL (Wolumen dzisiejszy vs średnia z dostępnych dni, max 20)
+            vol_period = min(20, history_len)
+            df['Vol_MA20'] = df['Volume'].rolling(window=vol_period, min_periods=1).mean()
             df['RVOL'] = df['Volume'] / (df['Vol_MA20'] + 1e-10)
 
             # Pobranie najświeższych obliczonych rekordów
