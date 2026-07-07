@@ -9,7 +9,7 @@
 import streamlit as st
 import importlib
 from pathlib import Path
-
+import modules.ai_analysis as ai_analysis
 # -------------------------------------------------------
 # KONFIGURACJA STRONY
 # -------------------------------------------------------
