@@ -6,16 +6,11 @@
 =========================================================
 """
 
-import sys
-from pathlib import Path
-
-# WYMUSZENIE WIDOCZNOŚCI FOLDERÓW (Musi być na samym początku przed streamlit)
-root_path = Path(__file__).parent.absolute()
-if str(root_path) not in sys.path:
-    sys.path.insert(0, str(root_path))
-
 import streamlit as st
 import importlib
+import os
+import sys
+from pathlib import Path
 
 # -------------------------------------------------------
 # KONFIGURACJA STRONY
@@ -64,7 +59,7 @@ MENU = {
     "📰 News Center": "news_center",
     "🤖 AI Analysis": "ai_analysis",
     "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram_center",
+    "📬 Telegram": "telegram",
     "⚙ Settings": "settings_page",
 }
 
@@ -100,3 +95,17 @@ try:
 except Exception as e:
     st.error("Nie udało się uruchomić modułu.")
     st.exception(e)
+    
+    # --- AUTOMATYCZNA DIAGNOSTYKA STRUKTURY FOLDERÓW ---
+    st.warning("🔍 TEST SYSTEMOWY: Sprawdzam co znajduje się w folderze modules/services:")
+    try:
+        current_dir = Path(__file__).parent.absolute()
+        target_dir = current_dir / "modules" / "services"
+        if target_dir.exists():
+            st.write("✅ Folder 'modules/services' ISTNIEJE.")
+            st.write("Zawartość folderu:", os.listdir(target_dir))
+        else:
+            st.error("❌ Folder 'modules/services' NIE ISTNIEJE w podanej ścieżce!")
+            st.write("Zawartość głównego folderu modules:", os.listdir(current_dir / "modules"))
+    except Exception as err:
+        st.write("Błąd diagnostyki:", err)
