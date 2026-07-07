@@ -6,10 +6,16 @@
 =========================================================
 """
 
+import sys
+from pathlib import Path
+
+# WYMUSZENIE WIDOCZNOŚCI FOLDERÓW (Musi być na samym początku przed streamlit)
+root_path = Path(__file__).parent.absolute()
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
 import streamlit as st
 import importlib
-from pathlib import Path
-import streamlit as st
 
 # -------------------------------------------------------
 # KONFIGURACJA STRONY
@@ -78,13 +84,12 @@ st.sidebar.divider()
 st.sidebar.caption("Version 0.1.0")
 
 # -------------------------------------------------------
-# ŁADOWANIE MODUŁU (Automatyczne i bezpieczne)
+# ŁADOWANIE MODUŁU
 # -------------------------------------------------------
 
 module_name = MENU[selected]
 
 try:
-    # Ten blok ładuje automatycznie KAŻDY moduł z menu, w tym ai_analysis
     module = importlib.import_module(f"modules.{module_name}")
 
     if hasattr(module, "run"):
