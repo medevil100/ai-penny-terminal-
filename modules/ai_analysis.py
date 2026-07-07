@@ -11,17 +11,29 @@ def run():
 
     ticker = st.text_input(
         "Ticker",
-        "BML.WA"
+        "STX.WA"
     ).upper()
 
     if st.button("🤖 Analizuj"):
 
         stock = yf.Ticker(ticker)
 
-        df = stock.history(
-            period="3mo",
-            interval="1d"
-        )
+       try:
+
+    df = stock.history(
+        period="3mo",
+        interval="1d"
+    )
+
+except Exception as e:
+
+    st.error("Yahoo Finance chwilowo odrzuciło zapytanie.")
+
+    st.info(
+        "Odczekaj chwilę lub spróbuj ponownie."
+    )
+
+    return 
 
         if df.empty:
 
