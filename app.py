@@ -78,7 +78,7 @@ st.sidebar.divider()
 st.sidebar.caption("Version 0.1.0")
 
 # -------------------------------------------------------
-# ŁADOWANIE MODUŁU
+# ŁADOWANIE MODUŁU (Bezpieczne wyszukiwanie automatyczne)
 # -------------------------------------------------------
 
 root_path = Path(__file__).parent.absolute()
@@ -88,34 +88,42 @@ if str(root_path) not in sys.path:
 base_name = MENU[selected]
 module = None
 
-# Lista wszystkich możliwych kombinacji folderów i nazw plików
-possible_paths = [
-    f"modules.{base_name}",
-    f"modules.modules.{base_name}",
-]
+# Budowanie dynamicznej listy potencjalnych ścieżek
+possible_paths = []
 
-# Dodatkowe alternatywne nazwy dla trudnych modułów
+# Dodajemy bazowe ścieżki (klasyczne i podwójne foldery modules)
+possible_paths.extend([
+    f"modules.{base_name}",
+    f"modules.modules.{base_name}"
+])
+
+# Inteligentne dodatki dla specyficznych nazw
 if base_name == "ai_analysis":
     possible_paths.extend(["modules.ai_center", "modules.modules.ai_center"])
 elif base_name == "telegram":
     possible_paths.extend(["modules.telegram_center", "modules.modules.telegram_center"])
 elif base_name == "settings":
-    possible_paths.extend(["modules.settings_page", "modules.modules.settings_page"])
+    possible_paths.extend([
+        "modules.settings_page", 
+        "modules.modules.settings_page",
+        "modules.settings",
+        "modules.modules.settings"
+    ])
 
-# Próba zaimportowania pliku – błędy wyszukiwania są ignorowane, dopóki nie sprawdzimy wszystkiego
+# Bezgłośne przeszukanie lokalizacji
 for path in possible_paths:
     try:
         module = importlib.import_module(path)
-        break  # Znaleziono działający plik, przerywamy szukanie
+        break  # Znaleziono pasujący moduł, przerywamy pętlę
     except ModuleNotFoundError:
-        continue  # Pliku nie ma w tym folderze, szukamy w kolejnym
+        continue
 
-# Wyświetlenie modułu lub ostatecznego błędu, jeśli plik w ogóle zniknął z projektu
+# Renderowanie modułu na stronie
 if module:
     if hasattr(module, "run"):
         module.run()
     else:
-        st.error(f"Moduł {base_name} nie posiada funkcji run().")
+        st.error(f"Moduł '{base_name}' nie posiada zdefiniowanej funkcji run().")
 else:
     st.error(f"Nie udało się odnaleźć pliku dla modułu: {selected}")
-    st.info("Upewnij się, że odpowiedni plik .py znajduje się w Twoim folderze modules.")
+    st.info("Program szukał m.in. plików: settings.py, settings_page.py w folderach modules.")
