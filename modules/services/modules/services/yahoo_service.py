@@ -2,6 +2,7 @@ from __future__ import annotations
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import requests
 
 class YahooService:
     """Zaawansowany serwis analityczny pobierający dane i obliczający wskaźniki techniczne."""
@@ -9,20 +10,27 @@ class YahooService:
     def get_full_analysis(self, ticker: str) -> dict | None:
         """Pobiera dane historyczne i oblicza pełen zestaw wskaźników technicznych."""
         try:
-            # Próba pobrania standardowego roku danych
-            ticker_obj = yf.Ticker(ticker)
-            df = ticker_obj.history(period="1y", interval="1d", actions=False, auto_adjust=True)
+            # Tworzymy bezpieczną sesję z nagłówkiem User-Agent (Zapobiega blokadom Yahoo dla serwerów Streamlit)
+            session = requests.Session()
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            })
             
-            # --- TRYB RATUNKOWY DLA MAŁO PŁYNNYCH SPÓŁEK/GROSZÓWEK ---
-            # Jeśli tabela jest pusta, próbujemy pobrać krótszy okres (np. ostatnie 3 miesiące)
-            if df.empty or len(df) < 5:
-                df = ticker_obj.history(period="3mo", interval="1d", actions=False, auto_adjust=True)
-                
-            # Jeśli po próbie ratunkowej nadal nie ma danych, walor nie istnieje w Yahoo Finance
-            if df.empty or len(df) < 3:
+            # Pobieramy dane przez płaską strukturę download z przypisaną sesją przeglądarki
+            df = yf.download(
+                ticker, 
+                period="1y", 
+                interval="1d", 
+                progress=False, 
+                auto_adjust=True,
+                multi_level_index=False,
+                session=session
+            )
+            
+            if df.empty or len(df) < 10:
                 return None
 
-            # Standaryzacja i ujednolicenie nazw nagłówków kolumn
+            # Standaryzacja nazw nagłówków kolumn
             df.columns = [str(col).strip().capitalize() for col in df.columns]
 
             # Wymuszenie formatu numerycznego dla kluczowych danych giełdowych
@@ -30,7 +38,7 @@ class YahooService:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce')
             
-            # Uzupełniamy ewentualne puste dni (brak obrotu na groszówkach) poprzednimi wartościami
+            # Wypełnienie pustych dni (ffill) i usunięcie uszkodzonych wierszy
             df = df.ffill().dropna(subset=['Close'])
 
             # Pobranie bazowych danych OHLCV z ostatniej sesji
@@ -44,14 +52,14 @@ class YahooService:
             }
             volume = int(last_row['Volume']) if 'Volume' in df.columns else 0
 
-            # --- OBLICZENIA WSKAŹNIKÓW Z DYNAMICZNYMI WAGAMI (Dopasowane do długości historii) ---
+            # --- OBLICZENIA WSKAŹNIKÓW TECHNICZNYCH ---
             history_len = len(df)
             
             df['EMA20'] = df['Close'].ewm(span=min(20, history_len), adjust=False).mean()
             df['EMA50'] = df['Close'].ewm(span=min(50, history_len), adjust=False).mean()
             df['EMA200'] = df['Close'].ewm(span=min(200, history_len), adjust=False).mean()
 
-            # Obliczanie RSI (14) lub krótszego, jeśli historia jest bardzo krótka
+            # Obliczanie RSI (14)
             rsi_period = min(14, history_len - 1) if history_len > 2 else 2
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).ewm(alpha=1/rsi_period, adjust=False).mean()
@@ -76,12 +84,11 @@ class YahooService:
             # Obliczanie VWAP
             df['VWAP'] = (df['Volume'] * (df['High'] + df['Low'] + df['Close']) / 3).cumsum() / (df['Volume'].cumsum() + 1e-10)
 
-            # Obliczanie RVOL (Wolumen dzisiejszy vs średnia z dostępnych dni, max 20)
+            # Obliczanie RVOL
             vol_period = min(20, history_len)
             df['Vol_MA20'] = df['Volume'].rolling(window=vol_period, min_periods=1).mean()
             df['RVOL'] = df['Volume'] / (df['Vol_MA20'] + 1e-10)
 
-            # Pobranie najświeższych obliczonych rekordów
             last_calculated = df.iloc[-1]
 
             return {
