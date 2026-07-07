@@ -84,7 +84,7 @@ module_name = MENU[selected]
 
 try:
 
-    module = importlib.import_module(module_name)
+    module = importlib.import_module(f"modules.{module_name}")
 
 
 
