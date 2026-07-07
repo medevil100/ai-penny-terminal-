@@ -52,14 +52,14 @@ div[data-testid="metric-container"]{
 # -------------------------------------------------------
 
 MENU = {
-    "🏠 Dashboard": "modules.dashboard",
-    "🇵🇱 GPW Scanner": "modules.modules.gpw_scanner",
-    "🇺🇸 USA Scanner": "modules.modules.usa_scanner",
-    "📰 News Center": "modules.modules.news_center",
-    "🤖 AI Analysis": "modules.modules.ai_analysis",   # Poprawiono ścieżkę na ai_analysis
-    "🏆 Ranking": "modules.modules.ranking",
-    "📬 Telegram": "modules.modules.telegram_center",
-    "⚙ Settings": "modules.modules.settings",
+    "🏠 Dashboard": "dashboard",
+    "🇵🇱 GPW Scanner": "gpw_scanner",
+    "🇺🇸 USA Scanner": "usa_scanner",
+    "📰 News Center": "news_center",
+    "🤖 AI Analysis": "ai_analysis",
+    "🏆 Ranking": "ranking",
+    "📬 Telegram": "telegram",
+    "⚙ Settings": "settings",
 }
 
 # -------------------------------------------------------
@@ -85,16 +85,37 @@ root_path = Path(__file__).parent.absolute()
 if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
-full_import_path = MENU[selected]
+base_name = MENU[selected]
+module = None
 
-try:
-    module = importlib.import_module(full_import_path)
+# Lista wszystkich możliwych kombinacji folderów i nazw plików
+possible_paths = [
+    f"modules.{base_name}",
+    f"modules.modules.{base_name}",
+]
 
+# Dodatkowe alternatywne nazwy dla trudnych modułów
+if base_name == "ai_analysis":
+    possible_paths.extend(["modules.ai_center", "modules.modules.ai_center"])
+elif base_name == "telegram":
+    possible_paths.extend(["modules.telegram_center", "modules.modules.telegram_center"])
+elif base_name == "settings":
+    possible_paths.extend(["modules.settings_page", "modules.modules.settings_page"])
+
+# Próba zaimportowania pliku – błędy wyszukiwania są ignorowane, dopóki nie sprawdzimy wszystkiego
+for path in possible_paths:
+    try:
+        module = importlib.import_module(path)
+        break  # Znaleziono działający plik, przerywamy szukanie
+    except ModuleNotFoundError:
+        continue  # Pliku nie ma w tym folderze, szukamy w kolejnym
+
+# Wyświetlenie modułu lub ostatecznego błędu, jeśli plik w ogóle zniknął z projektu
+if module:
     if hasattr(module, "run"):
         module.run()
     else:
-        st.error(f"Moduł {full_import_path} nie posiada funkcji run().")
-
-except Exception as e:
-    st.error(f"Nie udało się uruchomić modułu: {selected}")
-    st.exception(e)
+        st.error(f"Moduł {base_name} nie posiada funkcji run().")
+else:
+    st.error(f"Nie udało się odnaleźć pliku dla modułu: {selected}")
+    st.info("Upewnij się, że odpowiedni plik .py znajduje się w Twoim folderze modules.")
