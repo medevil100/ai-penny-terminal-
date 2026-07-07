@@ -27,52 +27,59 @@ def run():
     st.subheader("📝 Log")
 
     st.code("AI Penny Terminal uruchomiony.")
-   import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("🇵🇱 GPW Scanner")
 
     st.info("Moduł w budowie.")
-   import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("🇺🇸 USA Scanner")
 
     st.info("Moduł w budowie.") 
-   import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("📰 News Center")
 
     st.info("Moduł w budowie.") 
-    import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("🤖 AI Analysis")
 
     st.info("Moduł w budowie.")
-   import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("🏆 Ranking")
 
     st.info("Moduł w budowie.")
-    import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("📬 Telegram")
 
     st.info("Moduł w budowie.")
-   import streamlit as st
+
+import streamlit as st
 
 def run():
 
     st.title("⚙ Settings")
 
-    st.info("Moduł w budowie.") 
+    st.info("Moduł w budowie.")
