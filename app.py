@@ -56,10 +56,10 @@ MENU = {
     "🇵🇱 GPW Scanner": "modules.modules.gpw_scanner",
     "🇺🇸 USA Scanner": "modules.modules.usa_scanner",
     "📰 News Center": "modules.modules.news_center",
-    "🤖 AI Analysis": "modules.modules.ai_center",
+    "🤖 AI Analysis": "modules.modules.ai_analysis",   # Poprawiono ścieżkę na ai_analysis
     "🏆 Ranking": "modules.modules.ranking",
     "📬 Telegram": "modules.modules.telegram_center",
-    "⚙ Settings": "modules.modules.settings",      # Poprawiono na właściwą nazwę pliku
+    "⚙ Settings": "modules.modules.settings",
 }
 
 # -------------------------------------------------------
