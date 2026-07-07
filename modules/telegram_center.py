@@ -1,6 +1,7 @@
-from .services.telegram_service import telegram
+import streamlit as st
+# USUNIĘTA KROPKA NA POCZĄTKU
+from services.telegram_service import telegram
 
-def run():
 
     st.title("📬 Telegram")
 
