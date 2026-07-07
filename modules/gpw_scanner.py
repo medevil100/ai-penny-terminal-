@@ -7,62 +7,73 @@ def run():
 
     st.title("🇵🇱 GPW Scanner")
 
-    tickers = st.text_input(
-        "Tickery GPW (oddzielone przecinkami)",
-        value="BML.WA, BCX.WA"
+    tickers_text = st.text_area(
+        "Wpisz tickery (przecinki):",
+        "BML.WA, BCX.WA, GRN.WA"
     )
 
-    if st.button("🔍 Skanuj GPW"):
+    if st.button("🚀 Skanuj"):
 
-        lista = [x.strip().upper() for x in tickers.split(",") if x.strip()]
+        tickers = [
+            x.strip().upper()
+            for x in tickers_text.split(",")
+            if x.strip()
+        ]
 
-        wyniki = []
+        results = []
 
-        for ticker in lista:
+        progress = st.progress(0)
+
+        for i, ticker in enumerate(tickers):
 
             try:
+                stock = yf.Ticker(ticker)
 
-                df = yf.download(
-                    ticker,
-                    period="5d",
-                    interval="1d",
-                    progress=False
+                df = stock.history(
+                    period="1mo",
+                    interval="1d"
                 )
 
-                if df.empty:
-                    continue
+                if not df.empty:
 
-                close = float(df["Close"].iloc[-1])
-                prev = float(df["Close"].iloc[-2])
+                    last = df.iloc[-1]
+                    prev = df.iloc[-2]
 
-                change = ((close - prev) / prev) * 100
+                    change = (
+                        (last["Close"] - prev["Close"])
+                        / prev["Close"]
+                    ) * 100
 
-                volume = int(df["Volume"].iloc[-1])
+                    results.append({
+                        "Ticker": ticker,
+                        "Cena": round(float(last["Close"]), 3),
+                        "Zmiana %": round(float(change), 2),
+                        "Wolumen": int(last["Volume"])
+                    })
 
-                wyniki.append({
-                    "Ticker": ticker,
-                    "Cena": round(close, 3),
-                    "Zmiana %": round(change, 2),
-                    "Wolumen": volume
-                })
-
-            except Exception:
+            except Exception as e:
                 pass
 
-        if wyniki:
+            progress.progress(
+                (i + 1) / len(tickers)
+            )
 
-            tabela = pd.DataFrame(wyniki)
+        if results:
 
-            tabela = tabela.sort_values(
-                by="Zmiana %",
+            table = pd.DataFrame(results)
+
+            table = table.sort_values(
+                "Zmiana %",
                 ascending=False
             )
 
             st.dataframe(
-                tabela,
+                table,
                 use_container_width=True
             )
 
         else:
 
-            st.warning("Brak danych.")
+            st.warning(
+                "Nie znaleziono danych."
+            )
