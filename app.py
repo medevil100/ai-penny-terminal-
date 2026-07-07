@@ -48,7 +48,7 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU (Z flagami emoji, dokładnie tak jak na GitHubie)
+# MENU
 # -------------------------------------------------------
 
 MENU = {
@@ -58,8 +58,8 @@ MENU = {
     "📰 News Center": "news_center",
     "🤖 AI Analysis": "ai_analysis",
     "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram_center",
-    "⚙ Settings": "settings_page",
+    "📬 Telegram": "telegram",
+    "⚙ Settings": "settings",
 }
 
 # -------------------------------------------------------
@@ -81,34 +81,41 @@ st.sidebar.caption("Version 0.1.0")
 # ŁADOWANIE MODUŁU
 # -------------------------------------------------------
 
-# Wymuszenie dodania głównego katalogu aplikacji do ścieżek wyszukiwania Pythona
 root_path = Path(__file__).parent.absolute()
 if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
 module_name = MENU[selected]
+module = None
 
-try:
-    # 1. Próba załadowania z klasycznego folderu modules
-    module = importlib.import_module(f"modules.{module_name}")
-except ModuleNotFoundError:
+# Lista potencjalnych ścieżek importu, które program sprawdzi po kolei
+possible_imports = [
+    f"modules.{module_name}",
+    f"modules.modules.{module_name}"
+]
+
+# Dodatkowe alternatywne nazwy dla trudnych modułów
+if module_name == "ai_analysis":
+    possible_imports.extend(["modules.ai_center", "modules.modules.ai_center"])
+elif module_name == "telegram":
+    possible_imports.extend(["modules.telegram_center", "modules.modules.telegram_center"])
+elif module_name == "settings":
+    possible_imports.extend(["modules.settings_page", "modules.modules.settings_page"])
+
+# Próba zaimportowania pliku z pierwszej działającej ścieżki
+for path in possible_imports:
     try:
-        # 2. Inteligentna próba ratunkowa: załadowanie z podwójnego folderu modules.modules
-        module = importlib.import_module(f"modules.modules.{module_name}")
+        module = importlib.import_module(path)
+        break  # Jeśli się udało, przerywamy pętlę
     except ModuleNotFoundError:
-        try:
-            # 3. Druga próba ratunkowa: jeśli plik od AI nazywa się ai_center
-            if module_name == "ai_analysis":
-                module = importlib.import_module("modules.modules.ai_center")
-            else:
-                raise
-        except Exception as e:
-            st.error("Nie udało się uruchomić modułu.")
-            st.exception(e)
-            module = None
+        continue
 
-# Jeśli moduł został pomyślnie zaimportowany, uruchom go
-if module and hasattr(module, "run"):
-    module.run()
-elif module:
-    st.error(f"Moduł {module_name} nie posiada funkcji run().")
+# Wyświetlenie modułu lub błędu
+if module:
+    if hasattr(module, "run"):
+        module.run()
+    else:
+        st.error(f"Moduł {module_name} nie posiada funkcji run().")
+else:
+    st.error(f"Nie udało się uruchomić modułu: {selected}")
+    st.info("Upewnij się, że odpowiedni plik .py znajduje się w katalogu modules.")
