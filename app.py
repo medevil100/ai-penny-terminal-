@@ -48,18 +48,18 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU
+# MENU (Wpisane dokładne ścieżki, które działają w Twoim projekcie)
 # -------------------------------------------------------
 
 MENU = {
-    "🏠 Dashboard": "dashboard",
-    "🇵🇱 GPW Scanner": "gpw_scanner",
-    "🇺🇸 USA Scanner": "usa_scanner",
-    "📰 News Center": "news_center",
-    "🤖 AI Analysis": "ai_analysis",
-    "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram",
-    "⚙ Settings": "settings",
+    "🏠 Dashboard": "modules.dashboard",
+    "🇵🇱 GPW Scanner": "modules.modules.gpw_scanner",
+    "🇺🇸 USA Scanner": "modules.modules.usa_scanner",
+    "📰 News Center": "modules.modules.news_center",
+    "🤖 AI Analysis": "modules.modules.ai_center",
+    "🏆 Ranking": "modules.modules.ranking",
+    "📬 Telegram": "modules.modules.telegram_center",
+    "⚙ Settings": "modules.modules.settings_page",
 }
 
 # -------------------------------------------------------
@@ -85,37 +85,17 @@ root_path = Path(__file__).parent.absolute()
 if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
-module_name = MENU[selected]
-module = None
+full_import_path = MENU[selected]
 
-# Lista potencjalnych ścieżek importu, które program sprawdzi po kolei
-possible_imports = [
-    f"modules.{module_name}",
-    f"modules.modules.{module_name}"
-]
+try:
+    # Bezpośrednie ładowanie bez szukania po omacku i bez błędów w tle
+    module = importlib.import_module(full_import_path)
 
-# Dodatkowe alternatywne nazwy dla trudnych modułów
-if module_name == "ai_analysis":
-    possible_imports.extend(["modules.ai_center", "modules.modules.ai_center"])
-elif module_name == "telegram":
-    possible_imports.extend(["modules.telegram_center", "modules.modules.telegram_center"])
-elif module_name == "settings":
-    possible_imports.extend(["modules.settings_page", "modules.modules.settings_page"])
-
-# Próba zaimportowania pliku z pierwszej działającej ścieżki
-for path in possible_imports:
-    try:
-        module = importlib.import_module(path)
-        break  # Jeśli się udało, przerywamy pętlę
-    except ModuleNotFoundError:
-        continue
-
-# Wyświetlenie modułu lub błędu
-if module:
     if hasattr(module, "run"):
         module.run()
     else:
-        st.error(f"Moduł {module_name} nie posiada funkcji run().")
-else:
+        st.error(f"Moduł {full_import_path} nie posiada funkcji run().")
+
+except Exception as e:
     st.error(f"Nie udało się uruchomić modułu: {selected}")
-    st.info("Upewnij się, że odpowiedni plik .py znajduje się w katalogu modules.")
+    st.exception(e)
