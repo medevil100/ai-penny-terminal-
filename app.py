@@ -9,7 +9,7 @@
 import streamlit as st
 import importlib
 from pathlib import Path
-import modules.ai_analysis as ai_analysis
+
 # -------------------------------------------------------
 # KONFIGURACJA STRONY
 # -------------------------------------------------------
@@ -77,25 +77,20 @@ st.sidebar.divider()
 st.sidebar.caption("Version 0.1.0")
 
 # -------------------------------------------------------
-# ŁADOWANIE MODUŁU
+# ŁADOWANIE MODUŁU (Automatyczne i bezpieczne)
 # -------------------------------------------------------
 
 module_name = MENU[selected]
 
 try:
-
+    # Ten blok ładuje automatycznie KAŻDY moduł z menu, w tym ai_analysis
     module = importlib.import_module(f"modules.{module_name}")
 
     if hasattr(module, "run"):
-
         module.run()
-
     else:
-
         st.error(f"Moduł {module_name} nie posiada funkcji run().")
 
 except Exception as e:
-
     st.error("Nie udało się uruchomić modułu.")
-
     st.exception(e)
