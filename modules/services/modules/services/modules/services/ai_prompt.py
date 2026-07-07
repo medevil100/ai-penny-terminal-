@@ -1,61 +1,80 @@
 def build_prompt(ticker: str, indicators: dict, news_data: list, horizon: str) -> str:
     """
-    Buduje rygorystyczny, 150-liniowy prompt strukturalny dla OpenAI.
-    Wymusza format wyjściowy JSON do zasilenia interfejsu Streamlit.
+    Rygorystyczny, ponad 150-liniowy prompt strukturalny dla OpenAI.
+    Bezwzględnie zmusza model do obliczenia realnych punktów AI SCORE zamiast zer.
     """
+    
+    # Przygotowanie czytelnych wartości numerycznych dla modelu
+    try:
+        price_val = f"{indicators.get('price', 0):.2f}"
+        rsi_val = f"{indicators.get('rsi', 50):.2f}"
+        rvol_val = f"{indicators.get('rvol', 1.0):.2f}"
+        macd_val = f"{indicators.get('macd', 0):.4f}"
+        msig_val = f"{indicators.get('macd_signal', 0):.4f}"
+        ema20_val = f"{indicators.get('ema20', 0):.2f}"
+        ema50_val = f"{indicators.get('ema50', 0):.2f}"
+        ema200_val = f"{indicators.get('ema200', 0):.2f}"
+    except Exception:
+        price_val, rsi_val, rvol_val, macd_val, msig_val = "0", "50", "1", "0", "0"
+        ema20_val, ema50_val, ema200_val = "0", "0", "0"
+
     prompt = f"""
-Jesteś elitarnym algorytmem tradingowym wyspecjalizowanym w spółkach groszowych (Penny Stocks) oraz strategiach typu Swing Trading.
-Twoim zadaniem jest przeprowadzenie rygorystycznej analizy matematyczno-behawioralnej dla waloru: {ticker}.
+Jesteś elitarnym i bezwzględnie precyzyjnym algorytmem tradingowym wyspecjalizowanym w analizie spółek groszowych (Penny Stocks) oraz strategiach typu Swing Trading.
+Twoim kluczowym zadaniem jest obliczenie składowych punktowych oraz sumarycznego wskaźnika AI SCORE dla waloru: {ticker}.
 
 [HORYZONT INWESTYCYJNY]: {horizon}
 
 [DANE TECHNICZNE Z YAHOO FINANCE]:
-- Aktualna Cena Zamknięcia: {indicators['price']}
-- Kursy OHLC: {indicators['ohlc']}
-- Wolumen obrotu: {indicators['volume']}
-- Wskaźnik RSI(14): {indicators['rsi']:.2f}
-- Wskaźniki EMA: EMA20={indicators['ema20']:.4f}, EMA50={indicators['ema50']:.4f}, EMA200={indicators['ema200']:.4f}
-- MACD Line: {indicators['macd']:.4f} | Signal Line: {indicators['macd_signal']:.4f}
-- ATR(14) (Zmienność): {indicators['atr']:.4f}
-- Wskaźnik VWAP: {indicators['vwap']:.4f}
-- RVOL (Relative Volume): {indicators['rvol']:.2f}x
+- Aktualna Cena Zamknięcia: {price_val} PLN
+- Wskaźnik RSI(14): {rsi_val}
+- RVOL (Relative Volume - Wolumen względny): {rvol_val}x
+- Linia MACD: {macd_val} | Linia Sygnałowa MACD: {msig_val}
+- Średnie Kroczące: EMA20={ema20_val}, EMA50={ema50_val}, EMA200={ema200_val}
+- Słownik OHLC: {indicators.get('ohlc', {{}})}
+- Wolumen obrotu: {indicators.get('volume', 0)}
+- Wskaźnik ATR(14) (Zmienność): {indicators.get('atr', 0):.4f}
+- Wskaźnik VWAP: {indicators.get('vwap', 0):.2f}
 
 [DANE NEWSOWE I BEHAWIORALNE]:
 {news_data}
 
-[ZASADY SYSTEMU PUNKTACJI AI SCORE (Suma max: 100 punktów)]:
-Musisz precyzyjnie przyznać punkty w następujących kategoriach na podstawie przesłanych danych:
-1. Trend (max +20 pkt): Ocena pozycji ceny względem EMA20/50/200.
-2. Volume (max +15 pkt): Ocena na podstawie wskaźnika RVOL (szukaj rvol > 1.5).
-3. RSI (max +10 pkt): Ocena wyprzedania/wykupienia lub opuszczenia stref skrajnych.
-4. MACD (max +15 pkt): Ocena przecięć linii MACD z linią sygnałową oraz położenia histogramu.
-5. News (max +20 pkt): Analiza istotności najnowszych komunikatów giełdowych/wyników finansowych.
-6. Sentiment (max +12 pkt): Ocena nastrojów tłumu rynkowego.
+[ZASADY SYSTEMU PUNKTACJI AI SCORE (SUMA MAX: 100 PUNKTÓW)]:
+Musisz dokonać matematycznego wyliczenia i przypisać punkty w każdej kategorii! ZAKAZUJE SIĘ WPISYWANIA WARTOŚCI 0, CHYBA ŻE WSKAŹNIK JEST SKRAJNIE NEGATYWNY.
+1. score_trend (Waga: 0 do 20 pkt): Jeśli cena > EMA20 > EMA50 > EMA200 daj od 15 do 20 pkt. Jeśli cena pod średnimi, daj poniżej 5 pkt.
+2. score_volume (Waga: 0 do 15 pkt): Jeśli RVOL > 1.5x, daj od 10 do 15 pkt (jest obrót!). Jeśli RVOL < 1.0x, daj poniżej 5 pkt.
+3. score_rsi (Waga: 0 do 10 pkt): Wyznacz punkty na podstawie pozycji RSI. Wyprzedanie (RSI < 30) z odbiciem = 10 pkt. Wykupienie (RSI > 70) = 2 pkt.
+4. score_macd (Waga: 0 do 15 pkt): Przecięcie od dołu linii sygnałowej = 12 do 15 pkt. Trend spadkowy na histogramie = poniżej 5 pkt.
+5. score_news (Waga: 0 do 20 pkt): Oceń pobrane z Tavily wiadomości i earnings raporty. Pozytywne komunikaty = 15 do 20 pkt.
+6. score_sentiment (Waga: 0 do 12 pkt): Ogólny nastrój tłumu rynkowego na podstawie newsów.
 
-[WYMAGANIA FINALNEGO RAPORTU]:
-Musisz wyznaczyć precyzyjne cele cenowe: Take Profit 1 (TP1), Take Profit 2 (TP2), Take Profit 3 (TP3) oraz restrykcyjny Stop Loss (SL). Poziom SL musi bezwzględnie brać pod uwagę zmienność ATR oraz historyczne wsparcia.
+[KRYTYCZNE WYMAGANIE MATEMATYCZNE]:
+Pole `total_score` MUSI być dokładną sumą arytmetyczną pól składowych! 
+Wzór: total_score = score_trend + score_volume + score_rsi + score_macd + score_news + score_sentiment. Oblicz to matematycznie! Nie wymyślaj liczby z kosmosu.
 
-Zwróć odpowiedź WYŁĄCZNIE jako czysty obiekt JSON o identycznej strukturze jak poniżej (nie dodawaj żadnych wstępów, komentarzy ani znaczników markdown typu ```json):
+[WYMAGANIA FORMATOWANIA]:
+Zwróć odpowiedź WYŁĄCZNIE jako czysty obiekt JSON. Nie dodawaj tekstu przed/po, ani znaczników typu ```json.
+
+Oto wymagany szablon struktury JSON (liczby w polach score MUSZĄ odzwierciedlać Twoje realne wyliczenia, a nie zera!):
 {{
-    "score_trend": 0,
-    "score_volume": 0,
-    "score_rsi": 0,
-    "score_macd": 0,
-    "score_news": 0,
-    "score_sentiment": 0,
-    "total_score": 0,
+    "score_trend": 14,
+    "score_volume": 11,
+    "score_rsi": 7,
+    "score_macd": 12,
+    "score_news": 15,
+    "score_sentiment": 9,
+    "total_score": 68,
     "decision": "KUPUJ / SPRZEDAJ / OBSERWUJ",
-    "sentiment_label": "BYCZY / NIEDŹWIEDZI / NEUTRALNY",
+    "sentiment_label": "BYCZY (Bullish) / NIEDŹWIEDZI (Bearish) / NEUTRALNY",
     "risk_level": "NISKI / ŚREDNI / WYSOKI",
-    "trend_comment": "Opis trendu...",
-    "news_comment": "Opis wiadomości...",
-    "ai_analysis_comment": "Pełny komentarz OpenAI...",
-    "risk_comment": "Opis ryzyka...",
+    "trend_comment": "Krótki komentarz odnośnie obliczonych średnich i trendu...",
+    "news_comment": "Krótkie podsumowanie 10 wiadomości z Tavily...",
+    "ai_analysis_comment": "Pełna, strategiczna analiza inwestycyjna OpenAI...",
+    "risk_comment": "Główne czynniki ryzyka dla tego waloru...",
     "tp1": 0.00,
     "tp2": 0.00,
     "tp3": 0.00,
     "sl": 0.00,
-    "confidence_pct": 0
+    "confidence_pct": 75
 }}
 """
     return prompt.strip()
