@@ -84,7 +84,8 @@ module_name = MENU[selected]
 
 try:
 
-    module = importlib.import_module(f"moduły.{module_name}")
+    module = importlib.import_module(f"modules.{module_name}")
+
 
     if hasattr(module, "run"):
 
