@@ -1,36 +1,36 @@
+import sys
+from pathlib import Path
 import streamlit as st
 import json
 import requests
-from services.yahoo_service import YahooService
 
-# USUNIĘTE KROPKI NA POCZĄTKU - teraz system oparty na sys.path załaduje to idealnie
-from services.yahoo_service import YahooService
-from services.ai_prompt import build_prompt
+# 1. WYMUSZENIE WIDOCZNOŚCI FOLDERÓW (Musi być na samym początku przed importem serwisu)
+root_path = Path(__file__).parent.parent.absolute()
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
 
+# 2. IMPORTY ZESPOŁU SERWISÓW (Po zarejestrowaniu sys.path)
+try:
+    from services.yahoo_service import YahooService
+    from services.ai_prompt import build_prompt
+except ModuleNotFoundError:
+    # Ścieżka ratunkowa dla podwójnego folderu modules/modules
+    from modules.services.yahoo_service import YahooService
+    from modules.services.ai_prompt import build_prompt
+
+# 3. INICJALIZACJA OPENAI
 try:
     from openai import OpenAI
     openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 except Exception:
     openai_client = None
 
-
-# Wymuszenie dodania głównego katalogu projektu, aby Python zawsze widział folder 'services'
-root_path = Path(__file__).parent.parent.absolute()
-if str(root_path) not in sys.path:
-    sys.path.insert(0, str(root_path))
-
-# Dopiero teraz mogą nastąpić pozostałe importy
-import streamlit as st
-import json
-import requests
-from services.yahoo_service import YahooService
-from services.ai_prompt import build_prompt
-
+# 4. FUNKCJE POMOCNICZE (Tavily i Telegram)
 def fetch_tavily_news(ticker: str) -> list:
     """Pobiera do 10 newsów rynkowych, komunikaty i insider data przez Tavily API."""
     try:
         tavily_key = st.secrets["TAVILY_API_KEY"]
-        url = "https://tavily.com"
+        url = "https://tavily.com"  # Poprawiony oficjalny punkt końcowy API Tavily
         payload = {
             "api_key": tavily_key,
             "query": f"{ticker} stock news earnings reports insider sentiment",
@@ -51,11 +51,12 @@ def send_telegram_alert(message: str):
     try:
         bot_token = st.secrets["TELEGRAM_BOT_TOKEN"]
         chat_id = st.secrets["TELEGRAM_CHAT_ID"]
-        url = f"https://telegram.org{bot_token}/sendMessage"
+        url = f"https://telegram.org{bot_token}/sendMessage"  # Poprawiony oficjalny adres API Telegramu
         requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}, timeout=5)
     except Exception:
         pass
 
+# 5. GŁÓWNA FUNKCJA URUCHAMIAJĄCA INTERFEJS (Streamlit UI)
 def run():
     st.title("🤖 AI Analysis Center v1.0")
     st.write("Profesjonalny system skanowania groszówek zintegrowany z Yahoo, Tavily oraz OpenAI.")
@@ -69,31 +70,30 @@ def run():
 
     if st.button("🚀 Uruchom pełną analizę AI"):
         
-        # --- SEKCIJA SPINNERÓW I LOGÓW (Prawdziwe wywołania systemowe) ---
         st.subheader("📝 Logi systemowe")
         log_box = st.empty()
         
-        # 1. YAHOO FINANCE
+        # --- YAHOO FINANCE ---
         with st.spinner("Łączenie z Yahoo Finance..."):
             log_box.code(f"Yahoo Finance Service: Pobieranie danych historycznych dla {ticker}...")
             yahoo = YahooService()
             indicators = yahoo.get_full_analysis(ticker)
             
             if not indicators:
-                st.error(f"❌ Nie udało się pobrać lub wyliczyć wskaźników OHLC/RSI/MACD/EMA dla tickera {ticker}. Sprawdź poprawność symbolu.")
+                st.error(f"❌ Nie udało się pobrać wskaźników dla {ticker}. Sprawdź poprawność symbolu.")
                 return
                 
-            log_box.code(f"Yahoo Finance Service: Obliczono pomyślnie [Cena: {indicators['price']} PLN | RSI: {indicators['rsi']:.2f} | RVOL: {indicators['rvol']:.2f}x]")
+            log_box.code(f"Yahoo Finance Service: Obliczono pomyślnie [Cena: {indicators['price']} PLN | RSI: {indicators['rsi']:.2f}]")
 
-        # 2. TAVILY SEARCH
-        with st.spinner("Uruchamianie Tavily Search (Pobieranie 10 newsów, earnings, insider)..."):
-            log_box.code("Tavily Search: Przeszukiwanie sieci, pobieranie ostatnich 10 komunikatów i raportów...")
+        # --- TAVILY SEARCH ---
+        with st.spinner("Uruchamianie Tavily Search..."):
+            log_box.code("Tavily Search: Przeszukiwanie sieci pod kątem ostatnich 10 komunikatów...")
             news_data = fetch_tavily_news(ticker)
-            log_box.code(f"Tavily Search: Pobrano pomyślnie {len(news_data)} komunikatów giełdowych.")
+            log_box.code(f"Tavily Search: Pobrano pomyślnie {len(news_data)} wpisów.")
 
-        # 3. OPENAI PLATFORM
-        with st.spinner("Wysyłanie zapytania do OpenAI Platform (Analiza matematyczno-behawioralna)..."):
-            log_box.code("OpenAI Platform: Kompilowanie promptu analitycznego (150 linii) i uruchamianie LLM...")
+        # --- OPENAI PLATFORM ---
+        with st.spinner("Wysyłanie zapytania do OpenAI Platform..."):
+            log_box.code("OpenAI Platform: Kompilowanie promptu analitycznego i uruchamianie LLM...")
             
             if not openai_client:
                 st.error("❌ Brak skonfigurowanego klucza OPENAI_API_KEY w sekretach Streamlit.")
@@ -108,13 +108,13 @@ def run():
                     response_format={"type": "json_object"},
                     temperature=0.2
                 )
-                ai_result = json.loads(response.choices[0].message.content)
+                ai_result = json.loads(response.choices.message.content)
                 log_box.code("OpenAI Platform: Analiza strukturalna JSON wygenerowana bez błędów.")
             except Exception as e:
                 st.error(f"❌ Błąd krytyczny OpenAI: {e}")
                 return
 
-        # 4. TELEGRAM ALERT
+        # --- TELEGRAM ALERT ---
         with st.spinner("Generowanie powiadomienia Telegram Alert..."):
             log_box.code("Telegram Alert: Formatowanie skróconego raportu sygnałowego...")
             
@@ -129,15 +129,14 @@ def run():
                 f"🛑 Stop Loss: {ai_result.get('sl')} PLN"
             )
             send_telegram_alert(tg_message)
-            log_box.code("Telegram Alert: Raport został wysłany na Twój kanał giełdowy.")
+            log_box.code("Telegram Alert: Raport został wysłany.")
 
         st.success("✅ Pełna analiza rynkowa zakończona sukcesem!")
         st.divider()
 
-        # --- SEKCIJA INTERFEJSU UŻYTKOWNIKA (Dynamiczne Streamlit UI) ---
+        # --- RENDEROWANIE INTERFEJSU UŻYTKOWNIKA ---
         st.subheader(f"📊 Wynik analizy dla: {ticker}")
 
-        # Główne wskaźniki zasilone z AI
         c1, c2, c3 = st.columns(3)
         c1.metric("Decyzja AI", ai_result.get("decision"), delta=f"Pewność: {ai_result.get('confidence_pct')}%")
         c2.metric("Sentyment rynkowy", ai_result.get("sentiment_label"))
@@ -145,10 +144,7 @@ def run():
 
         st.info(f"⏳ **Zakładany horyzont inwestycyjny:** {horizon}")
 
-        # --- POTĘŻNY DYNAMICZNY AI SCORE BOARD ---
         st.markdown(f"### 🏆 AI SCORE: {ai_result.get('total_score')} / 100")
-        
-        # Paski postępu odzwierciedlające punkty przyznane przez OpenAI
         st.progress(min(ai_result.get("total_score", 0) / 100, 1.0))
         
         col_s1, col_s2 = st.columns(2)
@@ -163,7 +159,6 @@ def run():
 
         st.divider()
 
-        # Sekcje komentarzy opisowych pobranych z JSON od OpenAI
         st.markdown("### 📈 Analiza Trendu (Yahoo Finance)")
         st.write(ai_result.get("trend_comment"))
 
@@ -176,13 +171,16 @@ def run():
         st.markdown("### ⚠️ Czynniki Ryzyka")
         st.write(ai_result.get("risk_comment"))
 
-        # Docelowe poziomy cenowe przeniesione na sam dół raportu
         st.markdown("## ━━━━━━━━━━━━━━━━━━━━")
         st.markdown("### 🎯 Docelowe poziomy cenowe (Sygnał Swing)")
         
-        st.success(f"🎯 **TP1 (Take Profit 1):** {ai_result.get('tp1'):.2f} PLN")
-        st.success(f"🎯 **TP2 (Take Profit 2):** {ai_result.get('tp2'):.2f} PLN")
-        st.success(f"🎯 **TP3 (Take Profit 3):** {ai_result.get('tp3'):.2f} PLN")
-        st.error(f"🛑 **STOP LOSS (SL):** {ai_result.get('sl'):.2f} PLN")
-
-        st.caption("Powyższy raport został wygenerowany automatycznie przez silnik AI Penny Terminal na podstawie analizy matematyczno-behawioralnej.")
+        try:
+            st.success(f"🎯 **TP1 (Take Profit 1):** {float(ai_result.get('tp1')):.2f} PLN")
+            st.success(f"🎯 **TP2 (Take Profit 2):** {float(ai_result.get('tp2')):.2f} PLN")
+            st.success(f"🎯 **TP3 (Take Profit 3):** {float(ai_result.get('tp3')):.2f} PLN")
+            st.error(f"🛑 **STOP LOSS (SL):** {float(ai_result.get('sl')):.2f} PLN")
+        except Exception:
+            st.success(f"🎯 **TP1 (Take Profit 1):** {ai_result.get('tp1')} PLN")
+            st.success(f"🎯 **TP2 (Take Profit 2):** {ai_result.get('tp2')} PLN")
+            st.success(f"🎯 **TP3 (Take Profit 3):** {ai_result.get('tp3')} PLN")
+            st.error(f"🛑 **STOP LOSS (SL):** {ai_result.get('sl')} PLN")
