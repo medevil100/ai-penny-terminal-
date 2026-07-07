@@ -8,6 +8,7 @@
 
 import streamlit as st
 import importlib
+import sys
 from pathlib import Path
 
 # -------------------------------------------------------
@@ -80,24 +81,22 @@ st.sidebar.caption("Version 0.1.0")
 # ŁADOWANIE MODUŁU
 # -------------------------------------------------------
 
+# Wymuszenie dodania głównego katalogu aplikacji do ścieżek wyszukiwania Pythona
+root_path = Path(__file__).parent.absolute()
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
 module_name = MENU[selected]
 
 try:
-
+    # Dynamiczne importowanie modułu z katalogu modules
     module = importlib.import_module(f"modules.{module_name}")
 
-
-
     if hasattr(module, "run"):
-
         module.run()
-
     else:
-
         st.error(f"Moduł {module_name} nie posiada funkcji run().")
 
 except Exception as e:
-
     st.error("Nie udało się uruchomić modułu.")
-
     st.exception(e)
