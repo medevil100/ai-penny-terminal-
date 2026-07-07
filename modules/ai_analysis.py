@@ -79,7 +79,7 @@ def run():
                 
             log_box.code(f"Yahoo Finance Service: Obliczono pomyślnie [Cena: {indicators['price']} PLN | RSI: {indicators['rsi']:.2f}]")
 
-        # --- TAVILY SEARCH ---
+       # --- TAVILY SEARCH ---
         with st.spinner("Uruchamianie Tavily Search..."):
             log_box.code("Tavily Search: Przeszukiwanie sieci pod kątem ostatnich 10 komunikatów...")
             news_data = fetch_tavily_news(ticker)
@@ -96,12 +96,16 @@ def run():
             prompt = build_prompt(ticker, indicators, news_data, horizon)
             
             try:
-                response = openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"},
-                    temperature=0.4
+                 model="gpt-4o-mini",
+                  messages=[{"role": "user", "content": prompt}],
+                  response_format={"type": "json_object"},
+                 temperature=0.4  # Zmieniono z 0.2 na 0.4 dla lepszej plastyczności obliczeń
                 )
+
+                    
+                   
+                    
+
                 # POPRAWIONA LINIA: Dodano [0] po choices, aby prawidłowo odczytać listę
                 ai_text = response.choices[0].message.content
                 ai_result = json.loads(ai_text)
@@ -130,7 +134,7 @@ def run():
 
         st.success("✅ Pełna analiza rynkowa zakończona sukcesem!")
         st.divider()
-
+ 
         # --- RENDEROWANIE INTERFEJSU UŻYTKOWNIKA ---
         st.subheader(f"📊 Wynik analizy dla: {ticker}")
 
