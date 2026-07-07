@@ -1,7 +1,16 @@
-import sys
-from pathlib import Path
-from .services.yahoo_service import YahooService
-from .services.ai_prompt import build_prompt
+import streamlit as st
+import json
+import requests
+
+# USUNIĘTE KROPKI NA POCZĄTKU - teraz system oparty na sys.path załaduje to idealnie
+from services.yahoo_service import YahooService
+from services.ai_prompt import build_prompt
+
+try:
+    from openai import OpenAI
+    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+except Exception:
+    openai_client = None
 
 
 # Wymuszenie dodania głównego katalogu projektu, aby Python zawsze widział folder 'services'
