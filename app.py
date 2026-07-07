@@ -48,18 +48,18 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU (Dopasowane do Twojej struktury podfolderów)
+# MENU (Z flagami emoji, dokładnie tak jak na GitHubie)
 # -------------------------------------------------------
 
 MENU = {
     "🏠 Dashboard": "dashboard",
-    "🇵🇱 GPW Scanner": "modules.gpw_scanner",
-    "🇺🇸 USA Scanner": "modules.usa_scanner",
-    "📰 News Center": "modules.news_center",
-    "🤖 AI Analysis": "modules.ai_analysis",
-    "🏆 Ranking": "modules.ranking",
-    "📬 Telegram": "modules.telegram_center",
-    "⚙ Settings": "modules.settings_page",
+    "🇵🇱 GPW Scanner": "gpw_scanner",
+    "🇺🇸 USA Scanner": "usa_scanner",
+    "📰 News Center": "news_center",
+    "🤖 AI Analysis": "ai_analysis",
+    "🏆 Ranking": "ranking",
+    "📬 Telegram": "telegram_center",
+    "⚙ Settings": "settings_page",
 }
 
 # -------------------------------------------------------
@@ -89,14 +89,26 @@ if str(root_path) not in sys.path:
 module_name = MENU[selected]
 
 try:
-    # Dynamiczne importowanie modułu z odpowiedniej ścieżki
+    # 1. Próba załadowania z klasycznego folderu modules
     module = importlib.import_module(f"modules.{module_name}")
+except ModuleNotFoundError:
+    try:
+        # 2. Inteligentna próba ratunkowa: załadowanie z podwójnego folderu modules.modules
+        module = importlib.import_module(f"modules.modules.{module_name}")
+    except ModuleNotFoundError:
+        try:
+            # 3. Druga próba ratunkowa: jeśli plik od AI nazywa się ai_center
+            if module_name == "ai_analysis":
+                module = importlib.import_module("modules.modules.ai_center")
+            else:
+                raise
+        except Exception as e:
+            st.error("Nie udało się uruchomić modułu.")
+            st.exception(e)
+            module = None
 
-    if hasattr(module, "run"):
-        module.run()
-    else:
-        st.error(f"Moduł {module_name} nie posiada funkcji run().")
-
-except Exception as e:
-    st.error("Nie udało się uruchomić modułu.")
-    st.exception(e)
+# Jeśli moduł został pomyślnie zaimportowany, uruchom go
+if module and hasattr(module, "run"):
+    module.run()
+elif module:
+    st.error(f"Moduł {module_name} nie posiada funkcji run().")
