@@ -9,7 +9,6 @@
 import streamlit as st
 import importlib
 import sys
-import os
 from pathlib import Path
 
 # -------------------------------------------------------
@@ -49,18 +48,18 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU
+# MENU (Dopasowane do Twojej struktury podfolderów)
 # -------------------------------------------------------
 
 MENU = {
     "🏠 Dashboard": "dashboard",
-    "🇵🇱 GPW Scanner": "gpw_scanner",
-    "🇺🇸 USA Scanner": "usa_scanner",
-    "📰 News Center": "news_center",
-    "🤖 AI Analysis": "ai_analysis",
-    "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram_center",
-    "⚙ Settings": "settings_page",
+    "🇵🇱 GPW Scanner": "modules.gpw_scanner",
+    "🇺🇸 USA Scanner": "modules.usa_scanner",
+    "📰 News Center": "modules.news_center",
+    "🤖 AI Analysis": "modules.ai_analysis",
+    "🏆 Ranking": "modules.ranking",
+    "📬 Telegram": "modules.telegram_center",
+    "⚙ Settings": "modules.settings_page",
 }
 
 # -------------------------------------------------------
@@ -90,7 +89,7 @@ if str(root_path) not in sys.path:
 module_name = MENU[selected]
 
 try:
-    # Dynamiczne importowanie modułu z katalogu modules
+    # Dynamiczne importowanie modułu z odpowiedniej ścieżki
     module = importlib.import_module(f"modules.{module_name}")
 
     if hasattr(module, "run"):
@@ -101,13 +100,3 @@ try:
 except Exception as e:
     st.error("Nie udało się uruchomić modułu.")
     st.exception(e)
-    
-    # --- BLOK DIAGNOSTYCZNY ---
-    # Ten kod sprawdzi, co naprawdę znajduje się w folderze modules, gdy wyskoczy błąd
-    st.warning("🔍 TEST DIAGNOSTYCZNY: Poniżej widnieją pliki, które Python widzi w folderze 'modules':")
-    modules_dir = root_path / "modules"
-    if modules_dir.exists():
-        files = os.listdir(modules_dir)
-        st.write(files)
-    else:
-        st.error("Folder 'modules' w ogóle nie istnieje w tym katalogu!")
