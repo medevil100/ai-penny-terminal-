@@ -15,16 +15,12 @@ try:
 except Exception:
     openai_client = None
 
-    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    openai_client = None
-
-# 4. FUNKCJE POMOCNICZE (Tavily i Telegram)
+# 3. FUNKCJE POMOCNICZE (Tavily i Telegram)
 def fetch_tavily_news(ticker: str) -> list:
     """Pobiera do 10 newsów rynkowych, komunikaty i insider data przez Tavily API."""
     try:
         tavily_key = st.secrets["TAVILY_API_KEY"]
-        url = "https://tavily.com"  # Poprawiony oficjalny punkt końcowy API Tavily
+        url = "https://tavily.com"  # Oficjalny punkt końcowy API Tavily
         payload = {
             "api_key": tavily_key,
             "query": f"{ticker} stock news earnings reports insider sentiment",
@@ -45,12 +41,12 @@ def send_telegram_alert(message: str):
     try:
         bot_token = st.secrets["TELEGRAM_BOT_TOKEN"]
         chat_id = st.secrets["TELEGRAM_CHAT_ID"]
-        url = f"https://telegram.org{bot_token}/sendMessage"  # Poprawiony oficjalny adres API Telegramu
+        url = f"https://telegram.org{bot_token}/sendMessage"  # Oficjalny adres API Telegramu
         requests.post(url, json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}, timeout=5)
     except Exception:
         pass
 
-# 5. GŁÓWNA FUNKCJA URUCHAMIAJĄCA INTERFEJS (Streamlit UI)
+# 4. GŁÓWNA FUNKCJA URUCHAMIAJĄCA INTERFEJS (Streamlit UI)
 def run():
     st.title("🤖 AI Analysis Center v1.0")
     st.write("Profesjonalny system skanowania groszówek zintegrowany z Yahoo, Tavily oraz OpenAI.")
@@ -79,13 +75,13 @@ def run():
                 
             log_box.code(f"Yahoo Finance Service: Obliczono pomyślnie [Cena: {indicators['price']} PLN | RSI: {indicators['rsi']:.2f}]")
 
-       # --- TAVILY SEARCH ---
+        # --- TAVILY SEARCH ---
         with st.spinner("Uruchamianie Tavily Search..."):
             log_box.code("Tavily Search: Przeszukiwanie sieci pod kątem ostatnich 10 komunikatów...")
             news_data = fetch_tavily_news(ticker)
             log_box.code(f"Tavily Search: Pobrano pomyślnie {len(news_data)} wpisów.")
 
-                # --- OPENAI PLATFORM ---
+        # --- OPENAI PLATFORM ---
         with st.spinner("Wysyłanie zapytania do OpenAI Platform..."):
             log_box.code("OpenAI Platform: Kompilowanie promptu analitycznego i uruchamianie LLM...")
             
@@ -96,24 +92,21 @@ def run():
             prompt = build_prompt(ticker, indicators, news_data, horizon)
             
             try:
-                 model="gpt-4o-mini",
-                  messages=[{"role": "user", "content": prompt}],
-                  response_format={"type": "json_object"},
-                 temperature=0.4  # Zmieniono z 0.2 na 0.4 dla lepszej plastyczności obliczeń
+                # Naprawione i skompilowane kompletne zapytanie do API
+                response = openai_client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                    temperature=0.4
                 )
 
-                    
-                   
-                    
-
-                # POPRAWIONA LINIA: Dodano [0] po choices, aby prawidłowo odczytać listę
+                # Wyciągnięcie zawartości z pierwszego elementu listy choices [0]
                 ai_text = response.choices[0].message.content
                 ai_result = json.loads(ai_text)
                 log_box.code("OpenAI Platform: Analiza strukturalna JSON wygenerowana bez błędów.")
             except Exception as e:
                 st.error(f"❌ Błąd krytyczny OpenAI: {e}")
                 return
-
 
         # --- TELEGRAM ALERT ---
         with st.spinner("Generowanie powiadomienia Telegram Alert..."):
