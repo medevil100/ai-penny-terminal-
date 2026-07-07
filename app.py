@@ -48,7 +48,7 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU (Wpisane dokładne ścieżki, które działają w Twoim projekcie)
+# MENU
 # -------------------------------------------------------
 
 MENU = {
@@ -59,7 +59,7 @@ MENU = {
     "🤖 AI Analysis": "modules.modules.ai_center",
     "🏆 Ranking": "modules.modules.ranking",
     "📬 Telegram": "modules.modules.telegram_center",
-    "⚙ Settings": "modules.modules.settings_page",
+    "⚙ Settings": "modules.modules.settings",      # Poprawiono na właściwą nazwę pliku
 }
 
 # -------------------------------------------------------
@@ -88,7 +88,6 @@ if str(root_path) not in sys.path:
 full_import_path = MENU[selected]
 
 try:
-    # Bezpośrednie ładowanie bez szukania po omacku i bez błędów w tle
     module = importlib.import_module(full_import_path)
 
     if hasattr(module, "run"):
