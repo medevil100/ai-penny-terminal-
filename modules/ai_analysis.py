@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import requests
+from services.yahoo_service import YahooService
 
 # USUNIĘTE KROPKI NA POCZĄTKU - teraz system oparty na sys.path załaduje to idealnie
 from services.yahoo_service import YahooService
