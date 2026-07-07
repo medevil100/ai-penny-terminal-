@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 import json
 import requests
+from modules.services.ai_prompt import build_prompt
 
 # 1. CZYSTE IMPORTY BEZ PRZEDROSTKÓW (System sys.path z app.py już widzi te pliki bezpośrednio)
 from yahoo_service import YahooService
