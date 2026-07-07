@@ -9,6 +9,7 @@
 import streamlit as st
 import importlib
 import sys
+import os
 from pathlib import Path
 
 # -------------------------------------------------------
@@ -100,3 +101,13 @@ try:
 except Exception as e:
     st.error("Nie udało się uruchomić modułu.")
     st.exception(e)
+    
+    # --- BLOK DIAGNOSTYCZNY ---
+    # Ten kod sprawdzi, co naprawdę znajduje się w folderze modules, gdy wyskoczy błąd
+    st.warning("🔍 TEST DIAGNOSTYCZNY: Poniżej widnieją pliki, które Python widzi w folderze 'modules':")
+    modules_dir = root_path / "modules"
+    if modules_dir.exists():
+        files = os.listdir(modules_dir)
+        st.write(files)
+    else:
+        st.error("Folder 'modules' w ogóle nie istnieje w tym katalogu!")
