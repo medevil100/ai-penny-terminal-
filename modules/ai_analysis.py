@@ -1,15 +1,17 @@
+import sys
+from pathlib import Path
+
+# Wymuszenie dodania głównego katalogu projektu, aby Python zawsze widział folder 'services'
+root_path = Path(__file__).parent.parent.absolute()
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
+# Dopiero teraz mogą nastąpić pozostałe importy
 import streamlit as st
 import json
 import requests
 from services.yahoo_service import YahooService
 from services.ai_prompt import build_prompt
-
-# Bezpieczne inicjalizacje klientów API z sekretów Streamlit
-try:
-    from openai import OpenAI
-    openai_client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
-except Exception:
-    openai_client = None
 
 def fetch_tavily_news(ticker: str) -> list:
     """Pobiera do 10 newsów rynkowych, komunikaty i insider data przez Tavily API."""
