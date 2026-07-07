@@ -8,7 +8,6 @@
 
 import streamlit as st
 import importlib
-import os
 import sys
 from pathlib import Path
 
@@ -49,18 +48,18 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU
+# MENU (Dostosowane dokładnie do Twojej struktury na GitHubie)
 # -------------------------------------------------------
 
 MENU = {
     "🏠 Dashboard": "dashboard",
-    "🇵🇱 GPW Scanner": "gpw_scanner",
-    "🇺🇸 USA Scanner": "usa_scanner",
-    "📰 News Center": "news_center",
-    "🤖 AI Analysis": "ai_analysis",
-    "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram",
-    "⚙ Settings": "settings_page",
+    "🇵🇱 GPW Scanner": "modules.gpw_scanner",
+    "🇺🇸 USA Scanner": "modules.usa_scanner",
+    "📰 News Center": "modules.news_center",
+    "🤖 AI Analysis": "modules.ai_analysis",
+    "🏆 Ranking": "modules.ranking",
+    "📬 Telegram": "modules.telegram",
+    "⚙ Settings": "modules.settings_page",
 }
 
 # -------------------------------------------------------
@@ -82,9 +81,20 @@ st.sidebar.caption("Version 0.1.0")
 # ŁADOWANIE MODUŁU
 # -------------------------------------------------------
 
+# Wymuszenie dodania katalogów do ścieżki Pythona, aby podfolder działał jako pakiet
+root_path = Path(__file__).parent.absolute()
+if str(root_path) not in sys.path:
+    sys.path.insert(0, str(root_path))
+
+# Dodajemy głębszy folder modules jako kolejną ścieżkę startową
+deep_modules = root_path / "modules" / "modules"
+if deep_modules.exists() and str(deep_modules) not in sys.path:
+    sys.path.insert(0, str(deep_modules))
+
 module_name = MENU[selected]
 
 try:
+    # Bezpieczne ładowanie z uwzględnieniem struktury podfolderów
     module = importlib.import_module(f"modules.{module_name}")
 
     if hasattr(module, "run"):
@@ -95,17 +105,3 @@ try:
 except Exception as e:
     st.error("Nie udało się uruchomić modułu.")
     st.exception(e)
-    
-    # --- AUTOMATYCZNA DIAGNOSTYKA STRUKTURY FOLDERÓW ---
-    st.warning("🔍 TEST SYSTEMOWY: Sprawdzam co znajduje się w folderze modules/services:")
-    try:
-        current_dir = Path(__file__).parent.absolute()
-        target_dir = current_dir / "modules" / "services"
-        if target_dir.exists():
-            st.write("✅ Folder 'modules/services' ISTNIEJE.")
-            st.write("Zawartość folderu:", os.listdir(target_dir))
-        else:
-            st.error("❌ Folder 'modules/services' NIE ISTNIEJE w podanej ścieżce!")
-            st.write("Zawartość głównego folderu modules:", os.listdir(current_dir / "modules"))
-    except Exception as err:
-        st.write("Błąd diagnostyki:", err)
