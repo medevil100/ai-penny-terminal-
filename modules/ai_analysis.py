@@ -20,10 +20,13 @@ def run():
 
        try:
 
-    df = stock.history(
-        period="3mo",
-        interval="1d"
-    )
+    if "last_scan" not in st.session_state:
+
+    st.warning("Najpierw uruchom GPW Scanner.")
+
+    return
+
+df = st.session_state["last_scan"][ticker]
 
 except Exception as e:
 
