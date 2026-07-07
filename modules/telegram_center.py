@@ -1,4 +1,4 @@
-import streamlit as st
+from .services.telegram_service import telegram
 
 def run():
 
