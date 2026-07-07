@@ -9,17 +9,31 @@ class YahooService:
     def get_full_analysis(self, ticker: str) -> dict | None:
         """Pobiera dane historyczne i oblicza pełen zestaw wskaźników technicznych."""
         try:
-            # Pobieramy rok danych, aby poprawnie wyliczyć EMA200 i ATR
-            df = yf.download(ticker, period="1y", interval="1d", progress=False, auto_adjust=False)
+            # 1. Pobieranie danych z parametrami blokującymi MultiIndex (nowy standard yfinance)
+            df = yf.download(
+                ticker, 
+                period="1y", 
+                interval="1d", 
+                progress=False, 
+                auto_adjust=True,
+                multi_level_index=False
+            )
             
-            if df.empty or len(df) < 200:
+            # Bezpieczny warunek dla młodszych spółek giełdowych
+            if df.empty or len(df) < 50:
                 return None
 
-            # Spłaszczenie indeksów kolumn yfinance (dla nowszych wersji biblioteki)
+            # 2. Standaryzacja nazw kolumn na wypadek zmian w bibliotece
             if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.droplevel(1)
+                df.columns = df.columns.get_level_values(0)
+            df.columns = [str(col).strip().capitalize() for col in df.columns]
 
-            # 1. Pobranie podstawowych danych OHLCV (ostatni pasek)
+            # Wymuszenie konwersji typów na numeryczne (ochrona przed wartościami tekstowymi)
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce')
+
+            # 3. Pobranie podstawowych danych z ostatniego paska (OHLCV)
             last_row = df.iloc[-1]
             close_price = float(last_row['Close'])
             ohlc = {
@@ -30,25 +44,25 @@ class YahooService:
             }
             volume = int(last_row['Volume'])
 
-            # 2. Obliczanie EMA (20, 50, 200)
+            # 4. Obliczanie EMA (20, 50, 200) z dynamicznym limitem dla krótkiej historii
             df['EMA20'] = df['Close'].ewm(span=20, adjust=False).mean()
             df['EMA50'] = df['Close'].ewm(span=50, adjust=False).mean()
-            df['EMA200'] = df['Close'].ewm(span=200, adjust=False).mean()
+            df['EMA200'] = df['Close'].ewm(span=min(200, len(df)), adjust=False).mean()
 
-            # 3. Obliczanie RSI (14)
+            # 5. Obliczanie RSI (14)
             delta = df['Close'].diff()
             gain = (delta.where(delta > 0, 0)).ewm(alpha=1/14, adjust=False).mean()
             loss = (-delta.where(delta < 0, 0)).ewm(alpha=1/14, adjust=False).mean()
             rs = gain / (loss + 1e-10)
             df['RSI'] = 100 - (100 / (1 + rs))
 
-            # 4. Obliczanie MACD (12, 26, 9)
+            # 6. Obliczanie MACD (12, 26, 9)
             exp1 = df['Close'].ewm(span=12, adjust=False).mean()
             exp2 = df['Close'].ewm(span=26, adjust=False).mean()
             df['MACD'] = exp1 - exp2
             df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
 
-            # 5. Obliczanie ATR (14)
+            # 7. Obliczanie ATR (14)
             high_low = df['High'] - df['Low']
             high_close = np.abs(df['High'] - df['Close'].shift())
             low_close = np.abs(df['Low'] - df['Close'].shift())
@@ -56,14 +70,14 @@ class YahooService:
             true_range = ranges.max(axis=1)
             df['ATR'] = true_range.ewm(alpha=1/14, adjust=False).mean()
 
-            # 6. Obliczanie VWAP (przybliżenie dzienno-wsteczne dla dziennego interwału)
-            df['VWAP'] = (df['Volume'] * (df['High'] + df['Low'] + df['Close']) / 3).cumsum() / df['Volume'].cumsum()
+            # 8. Obliczanie VWAP (dzienne przybliżenie kumulacyjne)
+            df['VWAP'] = (df['Volume'] * (df['High'] + df['Low'] + df['Close']) / 3).cumsum() / (df['Volume'].cumsum() + 1e-10)
 
-            # 7. Obliczanie RVOL (Relative Volume - Wolumen z dziś vs średnia z 20 dni)
+            # 9. Obliczanie RVOL (Wolumen sesji vs średnia ruchoma z 20 sesji)
             df['Vol_MA20'] = df['Volume'].rolling(window=20).mean()
             df['RVOL'] = df['Volume'] / (df['Vol_MA20'] + 1e-10)
 
-            # Pobranie najświeższych obliczonych wartości
+            # Odczyt końcowych danych
             last_calculated = df.iloc[-1]
 
             return {
