@@ -1,29 +1,24 @@
 import streamlit as st
 
+
 def run():
 
     st.title("🚀 AI Penny Terminal")
 
-    st.write("## Dashboard")
-
-    c1,c2,c3,c4=st.columns(4)
-
-    c1.metric("OpenAI","ONLINE")
-
-    c2.metric("Yahoo","ONLINE")
-
-    c3.metric("Tavily","OFF")
-
-    c4.metric("Telegram","OFF")
+    st.write("Witaj w AI Penny Terminal.")
 
     st.divider()
 
-    st.subheader("📊 Radar dnia")
+    st.subheader("Status systemu")
 
-    st.info("Brak danych.")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.success("✅ Dashboard działa")
+
+    with col2:
+        st.info("🚧 Yahoo Service jeszcze niepodłączony")
 
     st.divider()
 
-    st.subheader("📝 Log")
-
-    st.code("AI Penny Terminal uruchomiony.")
+    st.write("To jest pierwszy moduł naszego terminala.")
