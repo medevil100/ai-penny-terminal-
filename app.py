@@ -9,6 +9,7 @@
 import streamlit as st
 import importlib
 import sys
+import os
 from pathlib import Path
 
 # -------------------------------------------------------
@@ -48,7 +49,7 @@ div[data-testid="metric-container"]{
 """, unsafe_allow_html=True)
 
 # -------------------------------------------------------
-# MENU (Wartości są prostymi nazwami plików .py)
+# MENU
 # -------------------------------------------------------
 
 MENU = {
@@ -78,28 +79,31 @@ st.sidebar.divider()
 st.sidebar.caption("Version 0.1.0")
 
 # -------------------------------------------------------
-# ŁADOWANIE MODUŁU
+# INTELIGENTNE REJESTROWANIE ŚCIEŻEK (sys.path)
 # -------------------------------------------------------
 
-# Wymuszenie dodania katalogów do ścieżki Pythona, aby podfolder działał jako pakiet
 root_path = Path(__file__).parent.absolute()
+
+# Automatycznie dodajemy wszystkie foldery i podfoldery w projekcie do ścieżki Pythona
 if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
-# Dodajemy głębszy folder modules jako kolejną ścieżkę startową
-deep_modules = root_path / "modules" / "modules"
-if deep_modules.exists() and str(deep_modules) not in sys.path:
-    sys.path.insert(0, str(deep_modules))
+for root, dirs, files in os.walk(root_path):
+    if "__pycache__" in root or ".git" in root:
+        continue
+    if root not in sys.path:
+        sys.path.insert(0, root)
+
+# -------------------------------------------------------
+# ŁADOWANIE MODUŁU
+# -------------------------------------------------------
 
 module_name = MENU[selected]
 
 try:
-    # Próba załadowania bezpośredniego lub poprzez strukturę podkatalogów
-    try:
-        module = importlib.import_module(f"modules.{module_name}")
-    except ModuleNotFoundError:
-        # Ratunkowe ładowanie, jeśli struktura zduplikowała się na GitHubie
-        module = importlib.import_module(f"modules.modules.{module_name}")
+    # Dzięki os.walk i sys.path ładujemy plik bezpośrednio po nazwie,
+    # niezależnie od tego, w jakim folderze się ukrył!
+    module = importlib.import_module(module_name)
 
     if hasattr(module, "run"):
         module.run()
