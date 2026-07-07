@@ -11,7 +11,6 @@ import importlib
 from pathlib import Path
 import streamlit as st
 
-st.write(st.secrets)
 # -------------------------------------------------------
 # KONFIGURACJA STRONY
 # -------------------------------------------------------
