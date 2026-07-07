@@ -8,7 +8,6 @@
 
 import streamlit as st
 import importlib
-import sys
 from pathlib import Path
 
 # -------------------------------------------------------
@@ -58,8 +57,8 @@ MENU = {
     "📰 News Center": "news_center",
     "🤖 AI Analysis": "ai_analysis",
     "🏆 Ranking": "ranking",
-    "📬 Telegram": "telegram",
-    "⚙ Settings": "settings",
+    "📬 Telegram": "telegram_center",
+    "⚙ Settings": "settings_page",
 }
 
 # -------------------------------------------------------
@@ -78,52 +77,25 @@ st.sidebar.divider()
 st.sidebar.caption("Version 0.1.0")
 
 # -------------------------------------------------------
-# ŁADOWANIE MODUŁU (Bezpieczne wyszukiwanie automatyczne)
+# ŁADOWANIE MODUŁU
 # -------------------------------------------------------
 
-root_path = Path(__file__).parent.absolute()
-if str(root_path) not in sys.path:
-    sys.path.insert(0, str(root_path))
+module_name = MENU[selected]
 
-base_name = MENU[selected]
-module = None
+try:
 
-# Budowanie dynamicznej listy potencjalnych ścieżek
-possible_paths = []
+    module = importlib.import_module(f"modules.{module_name}")
 
-# Dodajemy bazowe ścieżki (klasyczne i podwójne foldery modules)
-possible_paths.extend([
-    f"modules.{base_name}",
-    f"modules.modules.{base_name}"
-])
-
-# Inteligentne dodatki dla specyficznych nazw
-if base_name == "ai_analysis":
-    possible_paths.extend(["modules.ai_center", "modules.modules.ai_center"])
-elif base_name == "telegram":
-    possible_paths.extend(["modules.telegram_center", "modules.modules.telegram_center"])
-elif base_name == "settings":
-    possible_paths.extend([
-        "modules.settings_page", 
-        "modules.modules.settings_page",
-        "modules.settings",
-        "modules.modules.settings"
-    ])
-
-# Bezgłośne przeszukanie lokalizacji
-for path in possible_paths:
-    try:
-        module = importlib.import_module(path)
-        break  # Znaleziono pasujący moduł, przerywamy pętlę
-    except ModuleNotFoundError:
-        continue
-
-# Renderowanie modułu na stronie
-if module:
     if hasattr(module, "run"):
+
         module.run()
+
     else:
-        st.error(f"Moduł '{base_name}' nie posiada zdefiniowanej funkcji run().")
-else:
-    st.error(f"Nie udało się odnaleźć pliku dla modułu: {selected}")
-    st.info("Program szukał m.in. plików: settings.py, settings_page.py w folderach modules.")
+
+        st.error(f"Moduł {module_name} nie posiada funkcji run().")
+
+except Exception as e:
+
+    st.error("Nie udało się uruchomić modułu.")
+
+    st.exception(e)
