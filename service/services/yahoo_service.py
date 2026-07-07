@@ -1,11 +1,10 @@
+from __future__ import annotations  # Ta linia MUSI być na samym początku pliku
 """
 =========================================================
 AI Penny Terminal
 Yahoo Finance Service
 =========================================================
 """
-
-from __future__ import annotations
 
 import yfinance as yf
 import pandas as pd
@@ -20,12 +19,8 @@ class YahooService:
         period: str = "6mo",
         interval: str = "1d",
     ) -> pd.DataFrame:
-        """
-        Pobiera dane historyczne dla jednego tickera.
-        """
-
+        """Pobiera dane historyczne dla jednego tickera."""
         try:
-
             df = yf.download(
                 ticker,
                 period=period,
@@ -44,7 +39,6 @@ class YahooService:
             return pd.DataFrame()
 
     def get_last_price(self, ticker: str):
-
         df = self.get_history(
             ticker=ticker,
             period="5d",
@@ -54,10 +48,14 @@ class YahooService:
         if df.empty:
             return None
 
-        return float(df["Close"].iloc[-1])
+        # Konwersja na typ float z obsługą struktur wielopoziomowych w nowym yfinance
+        try:
+            val = df["Close"].iloc[-1]
+            return float(val.iloc[0]) if hasattr(val, "iloc") else float(val)
+        except Exception:
+            return None
 
     def get_volume(self, ticker: str):
-
         df = self.get_history(
             ticker,
             period="5d",
@@ -66,4 +64,8 @@ class YahooService:
         if df.empty:
             return None
 
-        return int(df["Volume"].iloc[-1])
+        try:
+            val = df["Volume"].iloc[-1]
+            return int(val.iloc[0]) if hasattr(val, "iloc") else int(val)
+        except Exception:
+            return None
