@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+from .services.yahoo_service import YahooService
+from .services.ai_prompt import build_prompt
+
 
 # Wymuszenie dodania głównego katalogu projektu, aby Python zawsze widział folder 'services'
 root_path = Path(__file__).parent.parent.absolute()
