@@ -85,7 +85,7 @@ def run():
             news_data = fetch_tavily_news(ticker)
             log_box.code(f"Tavily Search: Pobrano pomyślnie {len(news_data)} wpisów.")
 
-        # --- OPENAI PLATFORM ---
+                # --- OPENAI PLATFORM ---
         with st.spinner("Wysyłanie zapytania do OpenAI Platform..."):
             log_box.code("OpenAI Platform: Kompilowanie promptu analitycznego i uruchamianie LLM...")
             
@@ -102,11 +102,14 @@ def run():
                     response_format={"type": "json_object"},
                     temperature=0.2
                 )
-                ai_result = json.loads(response.choices.message.content)
+                # POPRAWIONA LINIA: Dodano [0] po choices, aby prawidłowo odczytać listę
+                ai_text = response.choices[0].message.content
+                ai_result = json.loads(ai_text)
                 log_box.code("OpenAI Platform: Analiza strukturalna JSON wygenerowana bez błędów.")
             except Exception as e:
                 st.error(f"❌ Błąd krytyczny OpenAI: {e}")
                 return
+
 
         # --- TELEGRAM ALERT ---
         with st.spinner("Generowanie powiadomienia Telegram Alert..."):
